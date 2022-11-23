@@ -12,7 +12,8 @@ A) Random Policy on Dangerous Grid World:
 [ ] [W] [W] [W] [X] [ ] [X] 
 [ ] [ ] [ ] [ ] [ ] [ ] [G] 
 
-Random trajectory generated: [(0, 0), (0, 0), (1, 0), (2, 0), (2, 0), (2, 0), (2, 0), (2, 0), (1, 0), (1, 0), (1, 0)]
+Random trajectory generated: 
+[(0, 0), (0, 0), (1, 0), (2, 0), (2, 0), (2, 0), (2, 0), (2, 0), (1, 0), (1, 0), (1, 0)]
 
 B) Custom Environment: Recycling Robot
 	From state 'HIGH' selected action 'SEARCH': 	 total reward: 0.5
