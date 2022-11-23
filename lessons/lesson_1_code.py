@@ -54,7 +54,7 @@ class RecyclingRobot():
 
     def step( self, action ):
         reward = 0
-        print("Step Action", action,self.state,"\n") 
+        # print("Step Action", action,self.state,"\n") 
 
         if (action == 0): # WAIT 
             reward = self.r_wait
@@ -70,8 +70,8 @@ class RecyclingRobot():
         elif (self.state == 0 and action == 2): # RECHARGE
             self.state = 1  
         elif (self.state == 1 and action == 2): # Programmer Mistake
-            print("Error: the robot is already high, there is no point in recharhing \n")
-        
+            # print("Error: the robot is already high, there is no point in recharhing \n")
+            self.state =1  
         else: # ERROR HANDLING 
             print("\nERROR\n")
              
@@ -102,10 +102,10 @@ def main():
     ep_reward = 0
     for step in range(10):
         a = random.randint( 0, env.action_space )
-        print("Random Action", a) 
+        # print("Random Action", a) 
         new_state, r, _, _ = env.step( a )
         ep_reward += r
-        #print( f"\tFrom state '{env.states[state]}' selected action '{env.actions[a]}': \t total reward: {ep_reward:1.1f}" )
+        print( f"\tFrom state '{env.states[state]}' selected action '{env.actions[a]}': \t total reward: {ep_reward:1.1f}" )
         state = new_state
 
     print("Final Reward:",ep_reward)
