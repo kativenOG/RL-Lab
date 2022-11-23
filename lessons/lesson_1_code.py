@@ -17,7 +17,7 @@ def random_dangerous_grid_world( environment ):
 
     for _ in range(10):
         random_move = random.randint(0,3)
-        print(random_move)
+        # print(random_move)
         state = environment.sample(random_move,state)
         trajectory.append(state)
         if (environment.is_terminal(state)): 
@@ -40,7 +40,7 @@ class RecyclingRobot():
 
         # Defining the environment variables
         self.observation_space = 2  
-        self.action_space = 3 
+        self.action_space = 2 
         self.actions = [0,1,2] #{0:"W",1:"S",2:"R"}
         self.states = [0,1] #{0:"H",1:"L"}
 
@@ -54,13 +54,14 @@ class RecyclingRobot():
 
     def step( self, action ):
         reward = 0
-         
+        print("Step Action", action,self.state,"\n") 
+
         if (action == 0): # WAIT 
             reward = self.r_wait
 
         elif (self.state == 1 and action==1): # SEARCH  
             next_state = random.choices([0,1],[self.alfa,(1-self.alfa)])
-            self.state = next_state
+            if(next_state==0): self.state = 0 
             reward = self.r_search 
         elif (self.state == 0 and action==1): 
             rescue = random.choices([0,1],[self.beta,(1-self.beta)])
@@ -69,7 +70,7 @@ class RecyclingRobot():
         elif (self.state == 0 and action == 2): # RECHARGE
             self.state = 1  
         elif (self.state == 1 and action == 2): # Programmer Mistake
-            print("Error: the robot is already high, there is no point in recharhing ")
+            print("Error: the robot is already high, there is no point in recharhing \n")
         
         else: # ERROR HANDLING 
             print("\nERROR\n")
@@ -101,10 +102,13 @@ def main():
     ep_reward = 0
     for step in range(10):
         a = random.randint( 0, env.action_space )
+        print("Random Action", a) 
         new_state, r, _, _ = env.step( a )
         ep_reward += r
         #print( f"\tFrom state '{env.states[state]}' selected action '{env.actions[a]}': \t total reward: {ep_reward:1.1f}" )
         state = new_state
+
+    print("Final Reward:",ep_reward)
 
 
 if __name__ == "__main__":
