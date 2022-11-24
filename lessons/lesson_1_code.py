@@ -59,19 +59,22 @@ class RecyclingRobot():
         if (action == 0): # WAIT 
             reward = self.r_wait
 
-        elif (self.state == 1 and action==1): # SEARCH  
-            next_state = random.choices([0,1],[self.alfa,(1-self.alfa)])
-            if(next_state==0): self.state = 0 
-            reward = self.r_search 
-        elif (self.state == 0 and action==1): 
-            rescue = random.choices([0,1],[self.beta,(1-self.beta)])
-            reward = self.r_search if rescue == 0 else self.r_rescue
+        elif (action==1): # SEARCH  
+            if self.state:
+                next_state = random.choices([0,1],[self.alfa,(1-self.alfa)])
+                print("Next state: ", next_state)
+                self.state = 1 if next_state[0]==0 else 0 
+                reward = self.r_search 
+            else:
+                rescue = random.choices([0,1],[self.beta,(1-self.beta)])
+                print("Rescue ",rescue)
+                reward = self.r_search if rescue[0]== 0 else self.r_rescue
+                self.state = 0 if rescue[0]==0 else 0 
 
-        elif (self.state == 0 and action == 2): # RECHARGE
+
+        elif (action == 2): # RECHARGE
             self.state = 1  
-        elif (self.state == 1 and action == 2): # Programmer Mistake
-            # print("Error: the robot is already high, there is no point in recharhing \n")
-            self.state =1  
+
         else: # ERROR HANDLING 
             print("\nERROR\n")
              
