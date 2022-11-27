@@ -17,12 +17,11 @@ def random_dangerous_grid_world( environment ):
 
     for _ in range(10):
         random_move = random.randint(0,3)
-        # print(random_move)
         state = environment.sample(random_move,state)
-        trajectory.append(state)
         if (environment.is_terminal(state)): 
             print("Terminal state reached")
             break 
+
     return trajectory
 
 
@@ -42,7 +41,7 @@ class RecyclingRobot():
         self.observation_space = 2  
         self.action_space = 2 
         self.actions = [0,1,2] #{0:"W",1:"S",2:"R"}
-        self.states = [0,1] #{0:"H",1:"L"}
+        self.states = [0,1] 
 
         # It would be foolish too recharge if the robot is already high in energy  
         # self.high_actions = {0:"W",1:"S"} 
@@ -62,12 +61,10 @@ class RecyclingRobot():
         elif (action==1): # SEARCH  
             if self.state:
                 next_state = random.choices([0,1],[self.alfa,(1-self.alfa)])
-                print("Next state: ", next_state)
                 self.state = 1 if next_state[0]==0 else 0 
                 reward = self.r_search 
             else:
                 rescue = random.choices([0,1],[self.beta,(1-self.beta)])
-                print("Rescue ",rescue)
                 reward = self.r_search if rescue[0]== 0 else self.r_rescue
                 self.state = 0 if rescue[0]==0 else 0 
 
