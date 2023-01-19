@@ -4,29 +4,34 @@ module_path = os.path.abspath(os.path.join('../tools'))
 if module_path not in sys.path: sys.path.append(module_path)
 from DangerousGridWorld import GridWorld
 
-
 def epsilon_greedy(q, state, epsilon):
     if numpy.random.random() < epsilon:
         return numpy.random.choice(q.shape[1])
     return q[state].argmax()
-
 
 def dynaQ( environment, maxiters=250, n=10, eps=0.3, alfa=0.3, gamma=0.99 ):
 
     Q = numpy.zeros((environment.observation_space, environment.action_space))
     M = numpy.array([[[None, None] for _ in range(environment.action_space)] for _ in range(environment.observation_space)])
     memory = []
-    # (A)
-    s = environment.random_initial_state()
+
+    # Not Random Version
+    # s = environment.random_initial_state()
 
     #while True: # In teoria 
     for _ in range(maxiters):
+        # (A)
+        s = environment.random_initial_state()
         # (B)
         a = epsilon_greedy(Q,s,eps) 
         # (C)
         new_state = environment.sample(a,s) 
         reward = environment.R[new_state]  
-        memory.append(list([s,a])) # save for selecting randomly next 
+        visited = list([s,a])
+        if visited not in memory:
+            print(f"Added {visited}")
+            memory.append(visited) # save for selecting randomly next 
+
         # (D)
         val = [0 for _ in environment.actions]
         for action in environment.actions: 
@@ -37,7 +42,7 @@ def dynaQ( environment, maxiters=250, n=10, eps=0.3, alfa=0.3, gamma=0.99 ):
         # (F)
         for _ in range(n):
 
-            # Manca scelta randomica s e a 
+            # Scelta Randomica s e a 
             index = random.choice(range(len(memory)))
             s,a = memory[index]
 
@@ -47,14 +52,12 @@ def dynaQ( environment, maxiters=250, n=10, eps=0.3, alfa=0.3, gamma=0.99 ):
                 val[action]= Q[new_state_f,action]
             Q[s,a] = Q[s,a] + alfa*(reward + gamma * max(val) - Q[s,a])
 
-        # (A)
-        s = new_state
+        # Not Random Version
+        # s = new_state
 
     
     policy = Q.argmax(axis=1) 
     return policy
-
-
 
 def main():
     print( "\n************************************************" )
@@ -76,8 +79,6 @@ def main():
     print( f"\tExpected reward with n=0 :", env.evaluate_policy(dq_policy_n00) )
     print( f"\tExpected reward with n=25:", env.evaluate_policy(dq_policy_n25) )
     print( f"\tExpected reward with n=50:", env.evaluate_policy(dq_policy_n50) )
-	
-	
 
 if __name__ == "__main__":
     main()
