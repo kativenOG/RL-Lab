@@ -79,7 +79,7 @@ def main():
     
     # Hyperparameters 
     n_armed = 10
-    training_steps = 1000
+    training_steps = 5000
     
     # Training phase
     print( f"\n{n_armed}-armed testbed with {training_steps} training_steps" )
