@@ -84,7 +84,7 @@ def createDNN( nInputs, nOutputs, nLayer, nNodes ):
     # Initialize the neural network
     model = Sequential()
     model.add(Dense(nNodes, input_dim=nInputs, activation="relu")) #input layer + hidden layer #1
-    for _ in range(nLayer):
+    for _ in range(nLayer-1):
         model.add(Dense(nNodes, activation="relu")) #hidden layer #2
     model.add(Dense(nOutputs, activation="linear")) #output layer
     return model
