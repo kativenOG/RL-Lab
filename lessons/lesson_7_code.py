@@ -103,9 +103,13 @@ def collect_random_trajectories( env, num_episodes=10 ):
     	memory_buffer: an array with the collected data
     
     """
+    """
+    Più informazioni ho, meglio è, quindi ci sta mettere il sampling fino all'end goal .
+    Però se prendo le TRAIETTORIE che eventualmente raggiungo il Goal può darsi che prendo state,action pair 
+    con informazioni più importanti per attribuire un valore di reward allo stato (non è detto prendendo le azioni randomicamente).
+    """ 
     
     memory_buffer = []
-    
     for _ in range(num_episodes):
         state = env.random_initial_state()
         action = np.random.choice(env.action_space)
@@ -134,8 +138,8 @@ def trainDNN( model, memory_buffer, epoch=20 ):
     """
 
     optimizer = tf.keras.optimizers.SGD( learning_rate=0.001 )
-    dataset_input = np.vstack(memory_buffer[:, 2])
-    target = np.vstack(memory_buffer[:, 3])
+    dataset_input = np.vstack(memory_buffer[:, 2]) # State, Action, NextAction
+    target = np.vstack(memory_buffer[:, 3])        # State, Action, NextAction, REWARD  
     for _ in range(epoch):
         with tf.GradientTape() as tape:
             idx = np.random.randint(dataset_input.shape[0], size=128 )
@@ -166,22 +170,26 @@ def main():
     print( "\nC) Collect a dataset from the interaction with the environment")
     env = GridWorld()
     memory_buffer = collect_random_trajectories( env, num_episodes=10 )
-    inp = np.array([[0], [48]])
+    inp = np.array([[0], [24], [48]])
     
     # PART 4) Train the DNN to predict the reward of given the state
     print( "\nD) Training a DNN to predict the reward of a state:")
     
     out = dnn_model( inp ).numpy()
-    print( "Pre Training Reward Prediction: " )
+    print( "PRE Training Reward Prediction: " )
     print( f"\tstate {inp[0][0]} => reward: {out[0][0]} ")
     print( f"\tstate {inp[1][0]} => reward: {out[1][0]} ")
+    print( f"\tstate {inp[2][0]} => reward: {out[2][0]} ")
     
     dnn_model = trainDNN( dnn_model, memory_buffer, epoch=1000 )
     
     out = dnn_model( inp ).numpy()
+    print(f"Inp: {inp}")
+    print(f"Out: {out}")
     print( "Post Training Reward Prediction: " )
     print( f"\tstate {inp[0][0]} => reward: {out[0][0]} ")
     print( f"\tstate {inp[1][0]} => reward: {out[1][0]} ")
+    print( f"\tstate {inp[2][0]} => reward: {out[2][0]} ")
 
 
 if __name__ == "__main__":
