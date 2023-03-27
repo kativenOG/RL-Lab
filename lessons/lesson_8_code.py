@@ -53,7 +53,7 @@ def mse( network, dataset_input, target ):
     return mse
 
 
-def training_loop( env, neural_net, updateRule, eps=1, episodes=100, updates=1 ):
+def training_loop( env, neural_net, updateRule, eps=1, episodes=1000, updates=1 ):
     """
     Main loop of the reinforcement learning algorithm. Execute the actions and interact
     with the environment to collect the experience for the training.
@@ -128,11 +128,12 @@ def DQNUpdate( neural_net, memory_buffer, optimizer, batch_size=32, gamma=0.99 )
         state, action, reward, next_state, done = memory_buffer[idx]
         
         #TODO: compute the target for the training
+        target = neural_net(state).numpy()
         if done:
-            target = reward 
+            target[0][action] = reward 
         else:
-            max_q = neural_net(next_state)  
-            target = reward + (max_q*gamma) 
+            max_q = max(neural_net(next_state).numpy()[0])
+            target[0][action] = reward + (max_q*gamma) 
         
     # Compute the gradient and perform the backpropagation step
     with tf.GradientTape() as tape:
