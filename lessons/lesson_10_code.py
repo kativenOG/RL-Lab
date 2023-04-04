@@ -24,13 +24,10 @@ def training_loop( env, actor_net, critic_net, updateRule, frequency=10, episode
     critic_optimizer = tf.keras.optimizers.Adam( learning_rate=0.001 ) 
     rewards_list, reward_queue = [], collections.deque( maxlen=100 )
     memory_buffer,memory_buffer_partial = [],[]
-    state = env.reset()[0]
-    state = state.reshape(-1,4)
-    
-    ep_reward = 0
     for ep in range(episodes):
     
         state = env.reset()[0] 
+        state = state.reshape(-1,4)
         ep_reward = 0
         while True:
         
@@ -39,18 +36,20 @@ def training_loop( env, actor_net, critic_net, updateRule, frequency=10, episode
             next_state, reward, terminated, truncated, info = env.step(action)
             next_state = next_state.reshape(-1,4)
             
-            memory_buffer.append( list([state,action,reward,next_state,terminated])) 
+            memory_buffer_partial.append( list([state[0],action,reward,next_state[0],terminated])) 
             ep_reward += reward
             
             if terminated or truncated:  break
             state = next_state
         
-        memory_buffer.append(np.array(memory_buffer_partial)) 
+        #TODO: Perform the actual training every 'frequency' episodes
+        memory_buffer.append(np.array(memory_buffer_partial)) # Cast to np Array for Slicing  
         memory_buffer_partial = []
         if ep %frequency == 0: 
-            updateRule( actor_net,critic_net, memory_buffer, actor_optimizer, critic_optimizer)
+            updateRule( actor_net,critic_net, np.array(memory_buffer), actor_optimizer, critic_optimizer)
+            # updateRule( neural_net, np.array(memory_buffer), optimizer )
             memory_buffer = []
-
+    
         # Update the reward list to return
         reward_queue.append( ep_reward )
         rewards_list.append( np.mean(reward_queue) )
@@ -59,6 +58,7 @@ def training_loop( env, actor_net, critic_net, updateRule, frequency=10, episode
     #Close the enviornment and return the rewards list
     env.close()
     return rewards_list
+
 
 
 def A2C( actor_net, critic_net, memory_buffer, actor_optimizer, critic_optimizer, gamma=0.99 ):
@@ -72,43 +72,63 @@ def A2C( actor_net, critic_net, memory_buffer, actor_optimizer, critic_optimizer
 
 	"""
 	
-	#TODO: implement the update rule for the critic (value function)
+    # UPDATE RULE CRITIC 
     for _ in range(10):
         # Shuffle the memory buffer
         np.random.shuffle( memory_buffer )
-        #TODO: extract the information from the buffer
-        # Tape for the critic
+
+        # CRITIC TAPE 
         with tf.GradientTape() as critic_tape:
         	#TODO: Compute the target and the MSE between the current prediction and the expected advantage 
             for index in range(len(memory_buffer)):
+
                 # STANDARD A2C EQUATION  
-                state,action,reward,next_state  = np.array(memory_buffer[index][:,0]),memory_buffer[index][:,1],memory_buffer[index][:,2],memory_buffer[index][:,3]
+                instance = memory_buffer[index]
+                state = np.array(instance[:,0])
+                action = instance[:,1]
+                reward= instance[:,2]
+                next_state= np.array(instance[:,3])
+                print(state,next_state)
+
                 prediction = reward + gamma*critic_net(next_state).numpy().reshape(-1) #(1-dones.astype(int))
                 target =critic_net(state).numpy().reshape(-1)
+
                 #MSE:
                 mse = tf.math.square(prediction - target) # Sign inverted because it's a maximization problem 
                 objective = tf.math.reduce_mean(mse)
-        	    #TODO: Perform the actual gradient-descent process
+
+        	    # Perform the actual gradient-descent process
                 grad = critic_tape.gradient(objective, critic_net.trainable_variables )
                 critic_optimizer.apply_gradients( zip(grad, critic_net.trainable_variables) )
 
-    #TODO: implement the update rule for the actor (policy function)
-    #TODO: extract the information from the buffer for the policy update
-    # Tape for the actor
+    # ACTOR TAPE 
     with tf.GradientTape() as actor_tape:
         #TODO: compute the log-prob of the current trajectory and 
+        objectives = []
         for index in range(len(memory_buffer)):
-            state,action,reward,next_state  = np.array(memory_buffer[index][:,0]),memory_buffer[index][:,1],memory_buffer[index][:,2],memory_buffer[index][:,3]
+            # state,action,reward,next_state  = np.array(memory_buffer[index][:,0]),memory_buffer[index][:,1],memory_buffer[index][:,2],memory_buffer[index][:,3]
+            state,  = np.array(memory_buffer[index][:,0])
+            action= memory_buffer[index][:,1]
+            reward= memory_buffer[index][:,2]
+            next_state= memory_buffer[index][:,3]
 
+
+            # The objective function, notice that:
+            # The REINFORCE objective is the sum of the logprob (i.e., the probability of the trajectory) multiplied by advantage
+            objective = 0 
             for i in range(len(state)):
-                adv_a = reward + gamma * critic_net(next_state)
+                appo = actor_net(state[i])
+                log_probs = tf.math.log(appo)
+                adv_a = reward + gamma * critic_net(next_state[i]).numpy().reshape(-1)
+                adv_b = critic_net(state[i]).numpy().reshape(-1)
+                objective += log_probs * (adv_a - adv_b)
+            objectives.append(objective)
+                
+        # Computing the final objective to optimize, is the average between all the considered trajectories
+        objective= - tf.math.reduce_mean(objectives)
+        grad = actor_tape.gradient(objective,actor_net.trainable_variables,)
+        actor_optimizer.apply_gradients( zip(grad, actor_net.trainable_variables) )
 
-
-
-        # the objective function, notice that:
-        # the REINFORCE objective is the sum of the logprob (i.e., the probability of the trajectory)
-        # multiplied by advantage
-        #TODO: compute the final objective to optimize, is the average between all the considered trajectories
 	
 def main(): 
     print( "\n*************************************************" )
