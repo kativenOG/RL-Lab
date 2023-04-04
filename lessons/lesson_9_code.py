@@ -112,7 +112,6 @@ def REINFORCE_rw2go( neural_net, memory_buffer, optimizer ):
     with tf.GradientTape() as tape:
 
         for index in range(len(memory_buffer)):
-            # state, action, reward, next_state, done = memory_buffer[][index] 
             state = np.array(memory_buffer[index][:,0])
             action = memory_buffer[index][:,1]
             reward = memory_buffer[index][:,2]
