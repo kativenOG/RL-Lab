@@ -83,7 +83,6 @@ def training_loop( env, neural_net, updateRule, eps=1, episodes=1000, updates=1 
         ep_reward = 0
         while True:
         
-            #TODO: select the action to perform
             action = env.action_space.sample() 
             
             # Perform the action, store the data in the memory buffer and update the reward
