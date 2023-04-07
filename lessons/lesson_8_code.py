@@ -78,8 +78,6 @@ def training_loop( env, neural_net, updateRule, eps=1, episodes=1000, updates=1 
         # Reset the environment and obtain the initial state
         state = env.reset()[0]
         state = state.reshape(-1,4)
-        # print(f"STATE: {state}")
-        # print(f"NEW STATE: {state}")
         ep_reward = 0
         while True:
         

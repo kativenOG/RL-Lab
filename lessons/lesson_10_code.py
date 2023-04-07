@@ -1,10 +1,24 @@
-import warnings; warnings.filterwarnings("ignore")
+import warnings
+
+from matplotlib import numpy; warnings.filterwarnings("ignore")
 import os; os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf; import numpy as np
 import matplotlib.pyplot as plt
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 import gymnasium, collections
+
+def mse( network, dataset_input, target ):
+    """
+    Compute the MSE loss function
+    """
+    predicted_value = network( dataset_input )
+    mse = tf.math.square(predicted_value - target)
+    mse = tf.math.reduce_mean(mse) 
+    # NB: still need reduce_mean to reduce the value to a scalar
+    #     but keep it a tensor and perform BackProp
+    return mse
+
 
 # TODO: implement the following functions as in the previous lessons
 # Notice that the value function has only one output with a linear activation
@@ -15,7 +29,7 @@ def createDNN( nInputs, nOutputs, nLayer, nNodes, last_activation ):
     model.add(Dense(nNodes, input_dim=nInputs, activation="relu")) #input layer + hidden layer #1
     for _ in range(1,nLayer):
         model.add(Dense(nNodes, activation="relu")) #hidden layer 
-    model.add(Dense(nOutputs, activation="linear")) #output layer
+    model.add(Dense(nOutputs, activation=last_activation)) #output layer
     
     return model
 
@@ -36,17 +50,17 @@ def training_loop( env, actor_net, critic_net, updateRule, frequency=10, episode
             next_state, reward, terminated, truncated, info = env.step(action)
             next_state = next_state.reshape(-1,4)
             
-            memory_buffer_partial.append( list([state[0],action,reward,next_state[0],terminated])) 
+            memory_buffer_partial.append( list([state,action,reward,next_state,terminated])) 
             ep_reward += reward
             
             if terminated or truncated:  break
             state = next_state
         
         #TODO: Perform the actual training every 'frequency' episodes
-        memory_buffer.append(np.array(memory_buffer_partial)) # Cast to np Array for Slicing  
+        memory_buffer.append(memory_buffer_partial) # Cast to np Array for Slicing  
         memory_buffer_partial = []
         if ep %frequency == 0: 
-            updateRule( actor_net,critic_net, np.array(memory_buffer), actor_optimizer, critic_optimizer)
+            updateRule( actor_net,critic_net, memory_buffer, actor_optimizer, critic_optimizer)
             # updateRule( neural_net, np.array(memory_buffer), optimizer )
             memory_buffer = []
     
@@ -71,61 +85,56 @@ def A2C( actor_net, critic_net, memory_buffer, actor_optimizer, critic_optimizer
 	and for the critic network (or value function)
 
 	"""
-	
     # UPDATE RULE CRITIC 
     for _ in range(10):
         # Shuffle the memory buffer
         np.random.shuffle( memory_buffer )
+        memory_buffer = np.array(memory_buffer)
+        #TODO: Compute the target and the MSE between the current prediction and the expected advantage 
+        for instance in memory_buffer:
+            for idx in range(len(instance)): 
+                state, action, reward, next_state, done = instance[idx]
+                #state = np.array(state)
+                #next_state = np.array(next_state)
+                target = critic_net(next_state).numpy()[0][0]
+                if done:
+                    target = reward 
+                else:
+                    # STANDARD A2C EQUATION FOR ADVANTAGE 
+                    target = reward + (target*gamma) 
+        
+                # CRITIC TAPE 
+                with tf.GradientTape() as critic_tape:
+                    #MSE:
+                    objective = mse(critic_net,state,target)
+                    grad = critic_tape.gradient(objective, critic_net.trainable_variables )
+                    critic_optimizer.apply_gradients( zip(grad, critic_net.trainable_variables) )
 
-        # CRITIC TAPE 
-        with tf.GradientTape() as critic_tape:
-        	#TODO: Compute the target and the MSE between the current prediction and the expected advantage 
-            for index in range(len(memory_buffer)):
-
-                # STANDARD A2C EQUATION  
-                instance = memory_buffer[index]
-                state = np.array(instance[:,0])
-                action = instance[:,1]
-                reward= instance[:,2]
-                next_state= np.array(instance[:,3])
-                print(state,next_state)
-
-                prediction = reward + gamma*critic_net(next_state).numpy().reshape(-1) #(1-dones.astype(int))
-                target =critic_net(state).numpy().reshape(-1)
-
-                #MSE:
-                mse = tf.math.square(prediction - target) # Sign inverted because it's a maximization problem 
-                objective = tf.math.reduce_mean(mse)
-
-        	    # Perform the actual gradient-descent process
-                grad = critic_tape.gradient(objective, critic_net.trainable_variables )
-                critic_optimizer.apply_gradients( zip(grad, critic_net.trainable_variables) )
-
+    # print("DONE WITH CRITIC")
     # ACTOR TAPE 
+    #TODO: compute the log-prob of the current trajectory and 
     with tf.GradientTape() as actor_tape:
-        #TODO: compute the log-prob of the current trajectory and 
         objectives = []
-        for index in range(len(memory_buffer)):
-            # state,action,reward,next_state  = np.array(memory_buffer[index][:,0]),memory_buffer[index][:,1],memory_buffer[index][:,2],memory_buffer[index][:,3]
-            state,  = np.array(memory_buffer[index][:,0])
-            action= memory_buffer[index][:,1]
-            reward= memory_buffer[index][:,2]
-            next_state= memory_buffer[index][:,3]
-
+        for instance in memory_buffer:
+            instance = numpy.array(instance)
+            state = instance[:,0]
+            action = instance[:,1].tolist()
+            reward = instance[:,2].tolist()
+            next_state= instance[:,3]
 
             # The objective function, notice that:
             # The REINFORCE objective is the sum of the logprob (i.e., the probability of the trajectory) multiplied by advantage
             objective = 0 
             for i in range(len(state)):
-                appo = actor_net(state[i])
-                log_probs = tf.math.log(appo)
-                adv_a = reward + gamma * critic_net(next_state[i]).numpy().reshape(-1)
+                appo = actor_net(state[i])[0]
+                log_probs = tf.math.log(appo[action[i]])
+                adv_a = reward[i] + gamma * critic_net(next_state[i]).numpy().reshape(-1)
                 adv_b = critic_net(state[i]).numpy().reshape(-1)
                 objective += log_probs * (adv_a - adv_b)
             objectives.append(objective)
                 
         # Computing the final objective to optimize, is the average between all the considered trajectories
-        objective= - tf.math.reduce_mean(objectives)
+        objective= -tf.math.reduce_mean(objectives)
         grad = actor_tape.gradient(objective,actor_net.trainable_variables,)
         actor_optimizer.apply_gradients( zip(grad, actor_net.trainable_variables) )
 
@@ -140,7 +149,7 @@ def main():
     
     env = gymnasium.make( "CartPole-v1" )
     actor_net = createDNN( 4, 2, nLayer=2, nNodes=32, last_activation="softmax")
-    critic_net = createDNN( 4, 1, nLayer=2, nNodes=32, last_activation="linear")
+    critic_net = createDNN( 4, 1, nLayer=2, nNodes=32, last_activation="linear") # in uscita solo una dimensione 
     rewards_naive = training_loop( env, actor_net, critic_net, A2C, episodes=_training_steps  )
     
     t = np.arange(0, _training_steps)
