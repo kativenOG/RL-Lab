@@ -84,14 +84,12 @@ def REINFORCE_naive( neural_net, memory_buffer, optimizer ):
     with tf.GradientTape() as tape:
 
         for index in range(len(memory_buffer)):
-            # state, action, reward, next_state, done = memory_buffer[][index] 
             state = np.array(memory_buffer[index][:,0])
             action = memory_buffer[index][:,1]
             reward = memory_buffer[index][:,2]
             
             target,rewards = 0,np.sum(reward)
             for i in range(len(state)):
-                # rewards+= reward[i]
                 probabilities = neural_net(state[i])
                 probability= probabilities[0][action[i]]
                 target += tf.math.log(probability)
