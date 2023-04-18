@@ -33,19 +33,21 @@ def training_loop( env, neural_net, updateRule, frequency=10, episodes=100 ):
     
     """
     
-    optimizer = tf.keras.optimizers.Adam( learning_rate=0.001 ) 
+    optimizer = tf.keras.optimizers.Adam() 
     rewards_list, reward_queue = [], collections.deque( maxlen=100 )
-    memory_buffer,memory_buffer_partial = [],[]
+    memory_buffer = []
     for ep in range(episodes):
     
         state = env.reset()[0] 
         state = state.reshape(-1,4)
         ep_reward = 0
+        memory_buffer_partial = []
         while True:
         
-            action = env.action_space.sample() 
+            distribution = neural_net(state.reshape(-1,4)).numpy()[0]
+            action = np.random.choice(2,p=distribution)
             
-            next_state, reward, terminated, truncated, info = env.step(action)
+            next_state, reward, terminated, truncated,_ = env.step(action)
             next_state = next_state.reshape(-1,4)
             
             memory_buffer_partial.append( list([state,action,reward,next_state,terminated])) 
@@ -56,7 +58,6 @@ def training_loop( env, neural_net, updateRule, frequency=10, episodes=100 ):
         
         #TODO: Perform the actual training every 'frequency' episodes
         memory_buffer.append(np.array(memory_buffer_partial)) # Cast to np Array for Slicing  
-        memory_buffer_partial = []
         if ep %frequency == 0: 
             updateRule( neural_net, np.array(memory_buffer), optimizer )
             memory_buffer = []
@@ -88,12 +89,12 @@ def REINFORCE_naive( neural_net, memory_buffer, optimizer ):
             action = memory_buffer[index][:,1]
             reward = memory_buffer[index][:,2]
             
-            target,rewards = 0,0
+            target,rewards = 0,np.sum(reward)
             for i in range(len(state)):
-                rewards+= reward[i]
-                appo = neural_net(state[i])
-                appo = appo[0][action[i]]
-                target += tf.math.log(appo)
+                # rewards+= reward[i]
+                probabilities = neural_net(state[i])
+                probability= probabilities[0][action[i]]
+                target += tf.math.log(probability)
             target = target * rewards
             objectives.append(target)
         
@@ -102,6 +103,8 @@ def REINFORCE_naive( neural_net, memory_buffer, optimizer ):
         optimizer.apply_gradients( zip(grad, neural_net.trainable_variables) )
 
 
+
+# errore in somma rewards 
 def REINFORCE_rw2go( neural_net, memory_buffer, optimizer ):
     """
     Main update rule for the REINFORCE process, with the addition of the reward-to-go trick,
@@ -119,9 +122,9 @@ def REINFORCE_rw2go( neural_net, memory_buffer, optimizer ):
             target,rewards = 0,0
             for i in range(len(state)):
                 rewards = sum(reward[i:])
-                appo = neural_net(state[i])
-                appo= appo[0][action[i]]
-                target += tf.math.log(appo)*rewards
+                probabilities = neural_net(state[i])
+                probability = probabilities [0][action[i]]
+                target += tf.math.log(probability)*rewards
             objectives.append(target)
         
         objective= - tf.math.reduce_mean(objectives)
@@ -136,7 +139,7 @@ def main():
     print( "*                 (REINFORCE)                   *" )
     print( "*************************************************\n" )
     
-    _training_steps = 1500
+    _training_steps = 1000
     env = gymnasium.make( "CartPole-v1" )
     
     # Training A)
