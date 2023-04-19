@@ -20,11 +20,10 @@ def mse( network, dataset_input, target ):
     return mse
 
 
-# TODO: implement the following functions as in the previous lessons
-# Notice that the value function has only one output with a linear activation
-# function in the last layer
+# Implement the following functions as in the previous lessons
+# Notice that the value function has only one output with a linear activation function in the last layer
 def createDNN( nInputs, nOutputs, nLayer, nNodes, last_activation ): 
-     # Initialize the neural network
+    # Initialize the neural network
     model = Sequential()
     model.add(Dense(nNodes, input_dim=nInputs, activation="relu")) #input layer + hidden layer #1
     for _ in range(1,nLayer):
@@ -49,8 +48,9 @@ def training_loop( env, actor_net, critic_net, updateRule, frequency=10, episode
         
             # action = env.action_space.sample() 
             # La prossim azioend eve essere scelta il base alla policy predetta dall'actor
+            n_action = 2 
             distribution = actor_net(state).numpy()[0]
-            action = np.random.choice(2,p=distribution)
+            action = np.random.choice(n_action,p=distribution)
             
             next_state, reward, terminated, truncated, info = env.step(action)
             next_state = next_state.reshape(-1,4)

@@ -43,7 +43,7 @@ def mse( network, dataset_input, target ):
     """
     # Compute the predicted value, over time this value should
     # looks more like to the expected output (i.e., target)
-    predicted_value = network( dataset_input )
+    predicted_value = network(dataset_input)
     
     # Compute MSE between the predicted value and the expected labels
     mse = tf.math.square(predicted_value - target)
@@ -80,11 +80,17 @@ def training_loop( env, neural_net, updateRule, eps=1, episodes=1000, updates=1 
         state = state.reshape(-1,4)
         ep_reward = 0
         while True:
-        
-            action = env.action_space.sample() 
+
+            # Epsilon-Greedy-like for choosing the action 
+            if np.random.random() > eps: 
+                action = env.action_space.sample() # Random action with probability epsilon 
+                # print(f"First {action}")
+            else: 
+                action = neural_net(state).numpy().argmax() # best action with probability 1-epsilon
+                # print(f"Second {action}")
             
             # Perform the action, store the data in the memory buffer and update the reward
-            next_state, reward, terminated, truncated, info = env.step(action)
+            next_state, reward, terminated, truncated, _ = env.step(action)
             next_state = state.reshape(-1,4)
             memory_buffer.append( list([state,action,reward,next_state,terminated])) 
             ep_reward += reward
@@ -92,14 +98,14 @@ def training_loop( env, neural_net, updateRule, eps=1, episodes=1000, updates=1 
             # Perform the actual training
             updateRule( neural_net, memory_buffer, optimizer )
             
-            #TODO: exit condition for the episode
-            if terminated or truncated: 
-                break
+            # Exit condition for the episode
+            if terminated or truncated: break
             
             # Update the current state
             state = next_state 
         
         # Update the reward list to return
+        eps = eps*0.99
         rewards_list.append( ep_reward )
         averaged_rewards.append( np.mean(rewards_list) )
         print( f"episode {ep:2d}: rw: {averaged_rewards[-1]:3.2f}, eps: {eps:3.2f}" )
@@ -125,18 +131,18 @@ def DQNUpdate( neural_net, memory_buffer, optimizer, batch_size=32, gamma=0.99 )
         state, action, reward, next_state, done = memory_buffer[idx]
         
         #TODO: compute the target for the training
-        target = neural_net(state).numpy()
+        target = neural_net(state).numpy()[0]
         if done:
-            target[0][action] = reward 
+            target[action] = reward 
         else:
             max_q = max(neural_net(next_state).numpy()[0])
-            target[0][action] = reward + (max_q*gamma) 
+            target[action] = reward + (max_q*gamma) 
         
-    # Compute the gradient and perform the backpropagation step
-    with tf.GradientTape() as tape:
-        objective = mse( neural_net, state, target )
-        grad = tape.gradient(objective, neural_net.trainable_variables )
-        optimizer.apply_gradients( zip(grad, neural_net.trainable_variables) )
+        # Compute the gradient and perform the backpropagation step
+        with tf.GradientTape() as tape:
+            objective = mse( neural_net, state, target )
+            grad = tape.gradient(objective, neural_net.trainable_variables )
+            optimizer.apply_gradients( zip(grad, neural_net.trainable_variables) )
 
 
 def main():
