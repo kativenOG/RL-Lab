@@ -1,0 +1,7 @@
+L'esame sarà tipo alla competitive programming, i migliori 
+( quelli che finiscono prima e che hanno il codice più efficiente) 
+prenderanno punti bonus (nessuno verrà penalizzato).
+Gli esercizi consisteranno nello riscrivere una step function per 
+un nuovo ambiente e usare REINFORCE e A2C (no DeepQN perchè la nostra implementazione fa cagare).
+
+In teoria non servono i lab prima del 9, ma per sicurezza è meglio averli.
