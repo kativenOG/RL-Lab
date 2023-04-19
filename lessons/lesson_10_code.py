@@ -50,7 +50,7 @@ def training_loop( env, actor_net, critic_net, updateRule, frequency=10, episode
             # La prossim azioend eve essere scelta il base alla policy predetta dall'actor
             n_action = 2 
             distribution = actor_net(state).numpy()[0]
-            action = np.random.choice(n_action,p=distribution)
+            action = np.random.choice(env.action_space.n,p=distribution)
             
             next_state, reward, terminated, truncated, info = env.step(action)
             next_state = next_state.reshape(-1,4)

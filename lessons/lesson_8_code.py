@@ -82,12 +82,10 @@ def training_loop( env, neural_net, updateRule, eps=1, episodes=1000, updates=1 
         while True:
 
             # Epsilon-Greedy-like for choosing the action 
-            if np.random.random() > eps: 
+            if np.random.random() < eps: 
                 action = env.action_space.sample() # Random action with probability epsilon 
-                # print(f"First {action}")
             else: 
                 action = neural_net(state).numpy().argmax() # best action with probability 1-epsilon
-                # print(f"Second {action}")
             
             # Perform the action, store the data in the memory buffer and update the reward
             next_state, reward, terminated, truncated, _ = env.step(action)
@@ -96,7 +94,8 @@ def training_loop( env, neural_net, updateRule, eps=1, episodes=1000, updates=1 
             ep_reward += reward
             
             # Perform the actual training
-            updateRule( neural_net, memory_buffer, optimizer )
+            for i in range(10): # in teoria dovrebbero andare con 10 batch da 32 in pareallelo 
+                updateRule( neural_net, memory_buffer, optimizer )
             
             # Exit condition for the episode
             if terminated or truncated: break
