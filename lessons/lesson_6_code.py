@@ -99,7 +99,7 @@ def main():
     
     # Repeat the experiment for 2000 episodes
     eps_00_average, eps_01_average, eps_10_average = [], [], []
-    for _ in range(500):
+    for _ in range(50):
     	bandit = MultiArmedBandit( levers=n_armed )
     	eps_00_average.append( banditAlgorithm( bandit, eps=0.00, maxiters=training_steps )[0] )
     	eps_01_average.append( banditAlgorithm( bandit, eps=0.01, maxiters=training_steps )[0] )

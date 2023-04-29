@@ -1,4 +1,5 @@
 import os, sys, numpy
+import numpy as np
 module_path = os.path.abspath(os.path.join('../tools'))
 if module_path not in sys.path: sys.path.append(module_path)
 from DangerousGridWorld import GridWorld
@@ -25,18 +26,15 @@ def on_policy_mc( environment, maxiters=5000, eps=0.3, gamma=0.99 ):
 
         episode = environment.sample_episode(p)[::-1]
         G = 0 
-        for val in episode:
-            stato,azione,reward = val[0],val[1],val[2]
+        for stato,azione,reward in reversed(episode):
             G = gamma*G + reward 
             returns[stato][azione].append(G)    
-            Q[stato][azione] = int(sum(G)/len(G))
 
-            actions = []
-            for action in range(environment.action_space): actions.append([Q[azione][action], action]) 
-            best_action = max(actions)[1]
-            
+            Q[stato][azione] = sum(returns[stato][azione])/len(returns[stato][azione])
+
+            best_action = np.argmax(Q[azione])
             for action in range(environment.action_space):
-                p[stato][action] = (1- eps + (eps/len(environment.action))) if (action == best_action) else (eps/len(environment.action))
+                p[stato][action] = (1- eps + (eps/environment.action_space)) if (action == best_action) else (eps/environment.action_space)
 
     deterministic_policy = [numpy.argmax(p[state]) for state in range(environment.observation_space)]	
     return deterministic_policy

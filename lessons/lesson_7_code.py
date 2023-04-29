@@ -17,9 +17,9 @@ def mse( network, dataset_input, target ):
     
     # Compute the predicted value, over time this value should
     # looks more like to the expected output (i.e., target)
-    print(f"Dataset Input: {dataset_input}")
+    # print(f"Dataset Input: {dataset_input}")
     predicted_value = network( dataset_input )
-    print(f"Predicted Value: {predicted_value}")
+    # print(f"Predicted Value: {predicted_value}")
     # Compute MSE between the predicted value and the expected labels
     mse = tf.math.square(predicted_value - target)
     mse = tf.math.reduce_mean(mse)
@@ -185,6 +185,7 @@ def main():
     dnn_model = trainDNN( dnn_model, memory_buffer, epoch=1000 )
     
     out = dnn_model( inp ).numpy()
+    print()
     print(f"Inp: {inp}")
     print(f"Out: {out}")
     print( "Post Training Reward Prediction: " )

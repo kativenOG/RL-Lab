@@ -71,7 +71,7 @@ def training_loop( env, neural_net, updateRule, eps=1, episodes=1000, updates=1 
     # Initialize the optimizer 
     # Not Stochastic Gradient Descent but Adam
     optimizer = tf.keras.optimizers.Adam( learning_rate=0.001 ) 
-    rewards_list, memory_buffer = [], collections.deque( maxlen=1000 )
+    rewards_list, memory_buffer =	 [], collections.deque( maxlen=1000 )
     averaged_rewards = []
     for ep in range(episodes):
     
