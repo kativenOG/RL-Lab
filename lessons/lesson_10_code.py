@@ -41,7 +41,7 @@ def training_loop( env, actor_net, critic_net, updateRule, frequency=10, episode
     
         state = env.reset()[0] 
         state = state.reshape(-1,4)
-        ep_reward = 0
+        ep_reward,ep_lenght= 0,0
         while True:
         
             # La prossim azioend eve essere scelta il base alla policy predetta dall'actor
@@ -52,6 +52,7 @@ def training_loop( env, actor_net, critic_net, updateRule, frequency=10, episode
             next_state = next_state.reshape(-1,4)
             memory_buffer.append([state,action,reward,next_state,terminated])
             ep_reward += reward
+            ep_lenght+= 1
             if terminated or truncated:  break
             state = next_state
         
@@ -64,7 +65,7 @@ def training_loop( env, actor_net, critic_net, updateRule, frequency=10, episode
         # Update the reward list to return
         reward_queue.append( ep_reward )
         rewards_list.append( np.mean(reward_queue) )
-        print( f"episode {ep:4d}: rw: {int(ep_reward):3d} (averaged: {np.mean(reward_queue):5.2f})" )
+        print( f"episode {ep:4d}: rw: {int(ep_reward):3d} len: {ep_lenght} (averaged: {np.mean(reward_queue):5.2f})" )
     
     #Close the enviornment and return the rewards list
     env.close()
@@ -85,9 +86,13 @@ def A2C( actor_net, critic_net, memory_buffer, actor_optimizer, critic_optimizer
     # UPDATE RULE CRITIC 
     instance = numpy.array(memory_buffer)
     for _ in range(10):
-        # Shuffle the memory buffer
-        np.random.shuffle( instance)
-        state,action,reward,next_state,dones = np.vstack(instance[:,0]),np.vstack(instance[:,1]),np.vstack(instance[:,2]),np.vstack(instance[:,3]),np.vstack(instance[:,4])
+        np.random.shuffle( instance) # Shuffle the memory buffer
+        state = np.vstack(instance[:,0])
+        reward = np.vstack(instance[:,2])
+        next_state = np.vstack(instance[:,3])
+        dones = np.vstack(instance[:,4])
+        dones = np.vstack(dones) # BOHHH l'ha fatto il seba 
+
         target = reward + (1 - dones.astype(int))*gamma*critic_net(next_state).numpy()[0][0]
         # CRITIC TAPE 
         with tf.GradientTape() as critic_tape:
@@ -98,19 +103,20 @@ def A2C( actor_net, critic_net, memory_buffer, actor_optimizer, critic_optimizer
 
     # ACTOR TAPE 
     with tf.GradientTape() as actor_tape:
-        objective = 0 # []
-        for row in instance:
-            state,action,reward,next_state,dones = row 
-            appo = actor_net(state)
-            log_probs = tf.math.log(appo[0][action])
-            adv_a = reward + gamma * critic_net(next_state).numpy().reshape(-1)
-            adv_b = critic_net(state).numpy().reshape(-1)
-            # objective.append(log_probs * (adv_a[0] - adv_b[0]))
-            objective += log_probs * (adv_a[0] - adv_b[0])
+        objectives = [] # inutile
+        objective = 0 
+        actions  =  np.vstack(instance[:,1])
+        probabilities= actor_net(state)
+        probability = [x[actions[i][0]] for i,x in enumerate(probabilities)]
+        log_probs = tf.math.log(probability)
+        adv_a = reward + gamma * critic_net(next_state).numpy().reshape(-1)
+        adv_b = critic_net(state).numpy().reshape(-1)
+        objective += log_probs * (adv_a[0] - adv_b[0])
+        objectives.append(objective)
                     
         # Computing the final objective to optimize, is the average between all the considered trajectories
-        # to_optimize = -tf.math.reduce_mean(objective) # inutile 
-        grad = actor_tape.gradient(-objective,actor_net.trainable_variables)
+        to_optimize = -tf.math.reduce_mean(objectives) # inutile 
+        grad = actor_tape.gradient(to_optimize,actor_net.trainable_variables)
         actor_optimizer.apply_gradients( zip(grad, actor_net.trainable_variables) )
 
 	
