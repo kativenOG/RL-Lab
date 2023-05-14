@@ -25,7 +25,7 @@ def training_loop( env, actor_net, critic_net, updateRule, frequency=10, episode
     for ep in range(episodes):
     
         state = env.reset()[0] 
-        state = state.reshape(-1,2)
+        # state = state.reshape(-1,1)
         ep_reward,ep_lenght,max_state= 0,0,-1000
         
         while True:
@@ -33,7 +33,7 @@ def training_loop( env, actor_net, critic_net, updateRule, frequency=10, episode
             distribution = actor_net(state).numpy()[0]
             action = np.random.choice(env.action_space.n,p=distribution)
             next_state, reward, terminated, truncated, _ = env.step(action)
-            next_state = next_state.reshape(-1,2)
+            # next_state = next_state.reshape(-1,1)
             memory_buffer.append([state,action,reward,next_state,terminated])
             ep_reward += reward
             ep_lenght+= 1
@@ -100,27 +100,13 @@ class OverrideReward( gymnasium.wrappers.NormalizeReward ):
     def step(self, action):
         previous_observation = np.array(self.env.state, dtype=np.float32)
         observation, reward, terminated, truncated, info = self.env.step(action)
-
-        # Prof Method 1:
-        if terminated or observation[0]>=0.5: reward = 1000  
-        if(observation[0] - previous_observation[0]) >0 and action == 2 : reward = 1 # Sto andando verso sinistra e spingendo verso sinistra 
-        if(observation[0] - previous_observation[0]) <0 and action == 0 : reward = 1  # Sto andando verso destra e spingendo verso destra 
-
-        return observation, reward, terminated, truncated, info
-
-        # actual_reward = 0 
-        # epsilon = 1e03
-        # if terminated: actual_reward = 10000
-        # elif (action == 1): actual_reward = -10000
-        # elif (action==0):
-        #     if sum(observation) <= -1.6: actual_reward = -10000
-        #     actual_reward = -1/(1.6+observation[0]+ epsilon) -observation[1]*100
-        # elif (action==2):
-        #     if sum(observation) >= 0.5: actual_reward = 10000
-        #     actual_reward = -1/(0.5-observation[0]+ epsilon) + observation[1]*100
-        # return observation, actual_reward, terminated, truncated, info
-	
-
+        max_state = 15 # 3*4 + 3 
+        new_reward = -0.1
+        if previous_observation > observation: new_reward = -1  
+        if terminated and (observation != max_state): new_reward = -10
+        elif terminated: new_reward = 100
+        return observation, new_reward, terminated, truncated, info
+        
 def main(): 
     print( "\n***************************************************" )
     print( "*  Welcome to the eleventh lesson of the RL-Lab!  *" )
@@ -129,15 +115,11 @@ def main():
 
     _training_steps = 2000
     # Crete the environment and add the wrapper for the custom reward function
-    gymnasium.envs.register(
-	    id='MountainCarMyVersion-v0',
-	    entry_point='gymnasium.envs.classic_control:MountainCarEnv',
-	    max_episode_steps=1000
-    )
-    env = gymnasium.make( "MountainCarMyVersion-v0",render_mode="human" )
+    gymnasium.envs.register( id='FrozenLake-v1', entry_point='gymnasium.envs.toy_text:FrozenLakeEnv',max_episode_steps=1000)
+    env = gymnasium.make("FrozenLake-v1",map_name="4x4",is_slippery=False,render_mode="human") #render_mode="human")
     env = OverrideReward(env)
-    actor_net = createDNN( 2, 3, nLayer=2, nNodes=32, last_activation="softmax")
-    critic_net = createDNN( 2, 1, nLayer=2, nNodes=32, last_activation="linear") # in uscita solo una dimensione 
+    actor_net = createDNN( 1, 3, nLayer=2, nNodes=32, last_activation="softmax")
+    critic_net = createDNN( 1, 1, nLayer=2, nNodes=32, last_activation="linear") # in uscita solo una dimensione 
     rewards_training, ep_lengths = training_loop(env, actor_net, critic_net, A2C, frequency=10, episodes=_training_steps  )
     # Save the trained neural network
     actor_net.save( "MountainCarActor.h5" )

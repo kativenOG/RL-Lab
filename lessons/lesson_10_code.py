@@ -1,6 +1,5 @@
 import warnings
-
-from matplotlib import numpy; warnings.filterwarnings("ignore")
+from matplotlib import numpy; warnings.filterwarnings("ignore") 
 import os; os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf; import numpy as np
 import matplotlib.pyplot as plt
@@ -83,41 +82,91 @@ def A2C( actor_net, critic_net, memory_buffer, actor_optimizer, critic_optimizer
 	and for the critic network (or value function)
 
 	"""
-    # UPDATE RULE CRITIC 
-    instance = numpy.array(memory_buffer)
+    memory_buffer = np.array(memory_buffer)
     for _ in range(10):
-        np.random.shuffle( instance) # Shuffle the memory buffer
-        state = np.vstack(instance[:,0])
-        reward = np.vstack(instance[:,2])
-        next_state = np.vstack(instance[:,3])
-        dones = np.vstack(instance[:,4])
-        dones = np.vstack(dones) # BOHHH l'ha fatto il seba 
-
-        target = reward + (1 - dones.astype(int))*gamma*critic_net(next_state).numpy()[0][0]
-        # CRITIC TAPE 
+        # Sample batch
+        np.random.shuffle(memory_buffer)
+        states = np.array(list(memory_buffer[:, 0]), dtype=np.float)[:,0,:]
+        rewards = np.array(list(memory_buffer[:, 2]), dtype=np.float)
+        next_states = np.array(list(memory_buffer[:, 3]), dtype=np.float)[:,0,:]
+        done = np.array(list(memory_buffer[:, 4]), dtype=bool)
+        # Tape for the critic
         with tf.GradientTape() as critic_tape:
-            predicted = critic_net(state)
-            objective= tf.math.square(predicted - target)
-            grad = critic_tape.gradient(objective, critic_net.trainable_variables)
-            critic_optimizer.apply_gradients( zip(grad, critic_net.trainable_variables) )
-
-    # ACTOR TAPE 
+            # Compute the target and the MSE between the current prediction
+            target = rewards + (1 - done.astype(int)) * gamma * critic_net(next_states)
+            prediction = critic_net(states)
+            objective = tf.math.square(prediction - target)
+            grads = critic_tape.gradient(objective, critic_net.trainable_variables)
+            critic_optimizer.apply_gradients(zip(grads, critic_net.trainable_variables))
+    # implement the update rule for the actor (policy function)
+    # extract the information from the buffer for the policy update
+    # Tape for the actor
+    objectives = []
     with tf.GradientTape() as actor_tape:
-        objectives = [] # inutile
-        objective = 0 
-        actions  =  np.vstack(instance[:,1])
-        probabilities= actor_net(state)
-        probability = [x[actions[i][0]] for i,x in enumerate(probabilities)]
-        log_probs = tf.math.log(probability)
-        adv_a = reward + gamma * critic_net(next_state).numpy().reshape(-1)
-        adv_b = critic_net(state).numpy().reshape(-1)
-        objective += log_probs * (adv_a[0] - adv_b[0])
-        objectives.append(objective)
-                    
-        # Computing the final objective to optimize, is the average between all the considered trajectories
-        to_optimize = -tf.math.reduce_mean(objectives) # inutile 
-        grad = actor_tape.gradient(to_optimize,actor_net.trainable_variables)
-        actor_optimizer.apply_gradients( zip(grad, actor_net.trainable_variables) )
+       
+        #states = np.array(list(memory_buffer[:, 0]), dtype=np.float)[:,0,:]
+        #rewards = np.array(list(memory_buffer[:, 2]), dtype=np.float)
+        actions = np.array(list(memory_buffer[:, 1]), dtype=int)
+        #next_states = np.array(list(memory_buffer[:, 3]), dtype=np.float)[:,0,:]
+        # compute the log-prob of the current trajectory and the objective function
+        adv_a = rewards + gamma * critic_net(next_states).numpy().reshape(-1)
+        adv_b = critic_net(states).numpy().reshape(-1)
+        probs = actor_net(states)
+        indices = tf.transpose(tf.stack([tf.range(probs.shape[0]), actions]))
+        probs = tf.gather_nd(
+            indices=indices,
+            params=probs
+        )
+        objective = tf.math.log(probs) * (adv_a - adv_b)
+        objectives.append(tf.reduce_mean(tf.reduce_sum(objective)))
+
+        objective = - tf.math.reduce_mean(objectives)
+        grads = actor_tape.gradient(objective, actor_net.trainable_variables)
+        actor_optimizer.apply_gradients(zip(grads, actor_net.trainable_variables))
+            # update rule for the critic (value function)
+
+    # # UPDATE RULE CRITIC 
+    # instance = numpy.array(memory_buffer)
+    # for _ in range(10):
+    #     np.random.shuffle( instance) # Shuffle the memory buffer
+    #     # state = np.vstack(instance[:,0])
+    #     # reward = np.vstack(instance[:,2])
+    #     # next_state = np.vstack(instance[:,3])
+    #     # dones = np.vstack(instance[:,4])
+    #     # dones = np.vstack(dones) # BOHHH l'ha fatto il seba 
+    #      
+    #     state = np.array(list(memory_buffer[:, 0]), dtype=np.float)[:,0,:]
+    #     reward = np.array(list(memory_buffer[:, 2]), dtype=np.float)
+    #     next_state = np.array(list(memory_buffer[:, 3]), dtype=np.float)[:,0,:]
+    #     dones = np.array(list(memory_buffer[:, 4]), dtype=bool)
+
+    #     # CRITIC TAPE 
+    #     with tf.GradientTape() as critic_tape:
+    #         target = reward + (1 - dones.astype(int))*gamma*critic_net(next_state).numpy()
+    #         predicted = critic_net(state)
+    #         objective= tf.math.square(predicted - target)
+    #         grad = critic_tape.gradient(objective, critic_net.trainable_variables)
+    #         critic_optimizer.apply_gradients( zip(grad, critic_net.trainable_variables) )
+
+    # # ACTOR TAPE 
+    # with tf.GradientTape() as actor_tape:
+    #     objectives = [] # inutile
+    #     objective = 0 
+    #     # actions  =  np.vstack(instance[:,1])
+    #     actions = np.array(list(memory_buffer[:, 1]), dtype=int)
+    #     adv_a = reward + gamma * critic_net(next_state).numpy().reshape(-1)
+    #     adv_b = critic_net(state).numpy().reshape(-1)
+
+    #     probabilities= actor_net(state)
+    #     probability = [x[actions[i][0]] for i,x in enumerate(probabilities)]
+    #     log_probs = tf.math.log(probability)
+    #     objective += log_probs * (adv_a[0] - adv_b[0])
+    #     objectives.append(objective)
+    #                 
+    #     # Computing the final objective to optimize, is the average between all the considered trajectories
+    #     to_optimize = -tf.math.reduce_mean(objectives) # inutile 
+    #     grad = actor_tape.gradient(to_optimize,actor_net.trainable_variables)
+    #     actor_optimizer.apply_gradients( zip(grad, actor_net.trainable_variables) )
 
 	
 def main(): 
@@ -128,7 +177,7 @@ def main():
     
     _training_steps = 2500
     
-    env = gymnasium.make( "CartPole-v1" )
+    env = gymnasium.make( "CartPole-v1",render_mode="human" )
     actor_net = createDNN( 4, 2, nLayer=2, nNodes=32, last_activation="softmax")
     critic_net = createDNN( 4, 1, nLayer=2, nNodes=32, last_activation="linear") # in uscita solo una dimensione 
     rewards_naive = training_loop( env, actor_net, critic_net, A2C, episodes=_training_steps  )
