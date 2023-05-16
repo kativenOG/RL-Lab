@@ -1,6 +1,7 @@
 import warnings; warnings.filterwarnings("ignore")
 import os; os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf; import numpy as np
+from lesson_10_code import A2C
 import matplotlib.pyplot as plt
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
@@ -17,7 +18,7 @@ def createDNN( nInputs, nOutputs, nLayer, nNodes, last_activation ):
     model.add(Dense(nOutputs, activation=last_activation)) #output layer
     return model
 
-def training_loop( env, actor_net, critic_net, updateRule, frequency=10, episodes=100 ): 
+def training_loop( env, actor_net, critic_net, updateRule, frequency=4, episodes=100 ): 
     actor_optimizer = tf.keras.optimizers.Adam( learning_rate=0.001 ) 
     critic_optimizer = tf.keras.optimizers.Adam( learning_rate=0.001 ) 
     rewards_list, reward_queue = [], collections.deque( maxlen=100 )
@@ -37,7 +38,7 @@ def training_loop( env, actor_net, critic_net, updateRule, frequency=10, episode
             memory_buffer.append([state,action,reward,next_state,terminated])
             ep_reward += reward
             ep_lenght+= 1
-            max_state = max(max_state,next_state[0][0])
+            # max_state = max(max_state,next_state[0][0])
             if terminated or truncated:  break
             state = next_state
         
@@ -50,47 +51,47 @@ def training_loop( env, actor_net, critic_net, updateRule, frequency=10, episode
         # Update the reward list to return
         reward_queue.append( ep_reward )
         rewards_list.append( np.mean(reward_queue) )
-        print( f"episode {ep:4d}: rw: {int(ep_reward):3d} len: {ep_lenght} Best_Distance: {max_state:3f} (averaged: {np.mean(reward_queue):5.2f})" )
+        print( f"episode {ep:4d}: rw: {int(ep_reward):3d} len: {ep_lenght} (averaged: {np.mean(reward_queue):5.2f})" ) #Best_Distance: {max_state:3f} 
     #Close the enviornment and return the rewards list
     env.close()
     return rewards_list
 
 
-def A2C( actor_net, critic_net, memory_buffer, actor_optimizer, critic_optimizer, gamma=0.99, observation_number=None ): 
-    instance = np.array(memory_buffer)
-    for _ in range(10):
-        np.random.shuffle( instance) # Shuffle the memory buffer
-        state = np.vstack(instance[:,0])
-        reward = np.vstack(instance[:,2])
-        next_state = np.vstack(instance[:,3])
-        dones = np.vstack(instance[:,4])
-        dones = np.vstack(dones) # BOHHH l'ha fatto il seba 
+# def A2C( actor_net, critic_net, memory_buffer, actor_optimizer, critic_optimizer, gamma=0.99, observation_number=None ): 
+#     instance = np.array(memory_buffer)
+#     for _ in range(10):
+#         np.random.shuffle( instance) # Shuffle the memory buffer
+#         state = np.vstack(instance[:,0])
+#         reward = np.vstack(instance[:,2])
+#         next_state = np.vstack(instance[:,3])
+#         dones = np.vstack(instance[:,4])
+#         dones = np.vstack(dones) # BOHHH l'ha fatto il seba 
 
-        target = reward + (1 - dones.astype(int))*gamma*critic_net(next_state).numpy()[0][0]
-        # CRITIC TAPE 
-        with tf.GradientTape() as critic_tape:
-            predicted = critic_net(state)
-            objective= tf.math.square(predicted - target)
-            grad = critic_tape.gradient(objective, critic_net.trainable_variables)
-            critic_optimizer.apply_gradients( zip(grad, critic_net.trainable_variables) )
+#         target = reward + (1 - dones.astype(int))*gamma*critic_net(next_state).numpy()[0][0]
+#         # CRITIC TAPE 
+#         with tf.GradientTape() as critic_tape:
+#             predicted = critic_net(state)
+#             objective= tf.math.square(predicted - target)
+#             grad = critic_tape.gradient(objective, critic_net.trainable_variables)
+#             critic_optimizer.apply_gradients( zip(grad, critic_net.trainable_variables) )
 
-    # ACTOR TAPE 
-    with tf.GradientTape() as actor_tape:
-        objectives = [] # inutile
-        objective = 0 
-        actions  =  np.vstack(instance[:,1])
-        probabilities= actor_net(state)
-        probability = [x[actions[i][0]] for i,x in enumerate(probabilities)]
-        log_probs = tf.math.log(probability)
-        adv_a = reward + gamma * critic_net(next_state).numpy().reshape(-1)
-        adv_b = critic_net(state).numpy().reshape(-1)
-        objective += log_probs * (adv_a[0] - adv_b[0])
-        objectives.append(objective)
-                    
-        # Computing the final objective to optimize, is the average between all the considered trajectories
-        to_optimize = -tf.math.reduce_mean(objectives) # inutile 
-        grad = actor_tape.gradient(to_optimize,actor_net.trainable_variables)
-        actor_optimizer.apply_gradients( zip(grad, actor_net.trainable_variables) )
+#     # ACTOR TAPE 
+#     with tf.GradientTape() as actor_tape:
+#         objectives = [] # inutile
+#         objective = 0 
+#         actions  =  np.vstack(instance[:,1])
+#         probabilities= actor_net(state)
+#         probability = [x[actions[i][0]] for i,x in enumerate(probabilities)]
+#         log_probs = tf.math.log(probability)
+#         adv_a = reward + gamma * critic_net(next_state).numpy().reshape(-1)
+#         adv_b = critic_net(state).numpy().reshape(-1)
+#         objective += log_probs * (adv_a[0] - adv_b[0])
+#         objectives.append(objective)
+#                     
+#         # Computing the final objective to optimize, is the average between all the considered trajectories
+#         to_optimize = -tf.math.reduce_mean(objectives) # inutile 
+#         grad = actor_tape.gradient(to_optimize,actor_net.trainable_variables)
+#         actor_optimizer.apply_gradients( zip(grad, actor_net.trainable_variables) )
 
 	
 class OverrideReward( gymnasium.wrappers.NormalizeReward ):
@@ -108,19 +109,7 @@ class OverrideReward( gymnasium.wrappers.NormalizeReward ):
 
         return observation, reward, terminated, truncated, info
 
-        # actual_reward = 0 
-        # epsilon = 1e03
-        # if terminated: actual_reward = 10000
-        # elif (action == 1): actual_reward = -10000
-        # elif (action==0):
-        #     if sum(observation) <= -1.6: actual_reward = -10000
-        #     actual_reward = -1/(1.6+observation[0]+ epsilon) -observation[1]*100
-        # elif (action==2):
-        #     if sum(observation) >= 0.5: actual_reward = 10000
-        #     actual_reward = -1/(0.5-observation[0]+ epsilon) + observation[1]*100
-        # return observation, actual_reward, terminated, truncated, info
-	
-
+        
 def main(): 
     print( "\n***************************************************" )
     print( "*  Welcome to the eleventh lesson of the RL-Lab!  *" )
@@ -134,11 +123,11 @@ def main():
 	    entry_point='gymnasium.envs.classic_control:MountainCarEnv',
 	    max_episode_steps=1000
     )
-    env = gymnasium.make( "MountainCarMyVersion-v0",render_mode="human" )
+    env = gymnasium.make( "MountainCarMyVersion-v0")#,render_mode="human" )
     env = OverrideReward(env)
     actor_net = createDNN( 2, 3, nLayer=2, nNodes=32, last_activation="softmax")
     critic_net = createDNN( 2, 1, nLayer=2, nNodes=32, last_activation="linear") # in uscita solo una dimensione 
-    rewards_training, ep_lengths = training_loop(env, actor_net, critic_net, A2C, frequency=10, episodes=_training_steps  )
+    rewards_training, ep_lengths = training_loop(env, actor_net, critic_net, A2C, episodes=_training_steps  )
     # Save the trained neural network
     actor_net.save( "MountainCarActor.h5" )
 
